@@ -1,0 +1,4 @@
+1. use <stdint.h> to replace all kinds of number type.
+2. replace some unsigned int as size_t
+3. add compatibility for socket type. Windows platform SOCKET type is different in 32 and 64 environment.
+

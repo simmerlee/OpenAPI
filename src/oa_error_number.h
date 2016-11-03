@@ -1,0 +1,16 @@
+#ifndef _OPEN_API_ERROR_NUMBER_H_
+#define _OPEN_API_ERROR_NUMBER_H_
+
+#define OA_ERR_CONTINUE_WITH_EXCEPTION		1
+#define OA_ERR_NO_ERROR						0
+#define OA_ERR_OPERATION_FAILED				-1
+#define OA_ERR_SYSTEM_CALL_FAILED			-2
+#define OA_ERR_ILLEGAL_ARG					-3
+#define OA_ERR_BUFFER_TOO_SMALL				-4
+#define OA_ERR_CONTENT_TOO_LONG             -5
+#define OA_ERR_OBJECT_NOT_EXIST				-6
+#define OA_ERR_OUT_OF_RANGE					-7
+#define OA_ERR_NOT_SUPPORT					-8
+#define OA_ERR_OUT_OF_MEMORY                -9
+
+#endif//_OPEN_API_ERROR_NUMBER_H_

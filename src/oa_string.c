@@ -191,15 +191,15 @@ int oa_string_append_char(oa_string_t* dst, char ch)
     return 0;
 }
 
-int oa_string_find(oa_string_t* str, const oa_string_t* partten, char** index)
+int oa_string_find(oa_string_t* str, const oa_string_t* partten, char** pos)
 {
-    *index = strstr(str->data, partten->data);
+    *pos = strstr(str->data, partten->data);
     return 0;
 }
 
-int oa_string_find_cstr(oa_string_t* str, const char* partten, char** index)
+int oa_string_find_cstr(oa_string_t* str, const char* partten, char** pos)
 {
-    *index = strstr(str->data, partten);
+    *pos = strstr(str->data, partten);
     return 0;
 }
 

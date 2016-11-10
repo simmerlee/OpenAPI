@@ -62,6 +62,22 @@ int oa_socket_init(oa_socket_t* sock, oa_socket_family_t family) {
     return 0;
 }
 
+int oa_socket_init_by_fd(oa_socket_t* sock, int fd) {
+    oa_socket_pri_t* sp;
+
+    if (sock == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    *sock = NULL;
+    sp = (oa_socket_pri_t*)malloc(sizeof(oa_socket_pri_t));
+    if (sp == NULL) {
+        return OA_ERR_OUT_OF_MEMORY;
+    }
+    sp->sp_fd = fd;
+    *sock = sp;
+    return 0;
+}
+
 int oa_socket_destroy(oa_socket_t* sock) {
     oa_socket_pri_t* sp;
 
@@ -318,6 +334,7 @@ int oa_socket_receive_from(oa_socket_t* sock,
     int addr_length = sizeof(addr);
     int ret;
     const char* retp;
+    char ip_buf[OA_IPV4_STR_MAX_LENGTH];
 
     if (sock == NULL || buf == NULL || buf_size == 0) {
         return OA_ERR_ILLEGAL_ARG;
@@ -337,12 +354,12 @@ int oa_socket_receive_from(oa_socket_t* sock,
     }
     if (ip != NULL) {
         retp = inet_ntop(AF_INET, &(addr.sin_addr),
-            buf, OA_IPV4_STR_MAX_LENGTH);
+            ip_buf, OA_IPV4_STR_MAX_LENGTH);
         if (retp == NULL) {
             sp->sp_errno = WSAGetLastError();
             return OA_ERR_SYSTEM_CALL_FAILED;
         }
-        strcpy(ip, buf);
+        strcpy(ip, ip_buf);
     }
     if (port != NULL) {
         *port = ntohs(addr.sin_port);
@@ -351,7 +368,7 @@ int oa_socket_receive_from(oa_socket_t* sock,
     return 0;
 }
 
-int oa_socket_get_fd(oa_socket_t* sock, unsigned long long* fd) {
+int oa_socket_get_fd(oa_socket_t* sock, long long* fd) {
     oa_socket_pri_t* sp;
 
     if (sock == NULL || fd == NULL) {
@@ -361,9 +378,97 @@ int oa_socket_get_fd(oa_socket_t* sock, unsigned long long* fd) {
     if (sp == NULL) {
         return OA_ERR_OPERATION_FAILED;
     }
-    *fd = (unsigned long long)(sp->sp_fd);
+    *fd = (long long)(sp->sp_fd);
 
     return 0;
 }
 
-int oa_socket_select();
+int oa_socket_set_nonblock(oa_socket_t* sock, int flag) {
+    oa_socket_pri_t* sp;
+    unsigned long value;
+    int ret;
+
+    if (sock == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    sp = *sock;
+    if (sp == NULL) {
+        return OA_ERR_OPERATION_FAILED;
+    }
+    value = flag;
+    ret = ioctlsocket(sp->sp_fd, FIONBIO, &value);
+    if (ret != 0) {
+        sp->sp_errno = WSAGetLastError();
+        return OA_ERR_SYSTEM_CALL_FAILED;
+    }
+
+    return 0;
+}
+
+int oa_ss_fdset_init(oa_ss_fdset_t* fdset) {
+    if (fdset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    *fdset = malloc(sizeof(fd_set));
+    if (*fdset == NULL) {
+        return OA_ERR_OUT_OF_MEMORY;
+    }
+    return 0;
+}
+
+int oa_ss_fdset_destroy(oa_ss_fdset_t* fdset) {
+    if (fdset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    free(*fdset);
+    *fdset = NULL;
+    return 0;
+}
+
+int oa_ss_fdset_set(oa_ss_fdset_t fdset, int fd) {
+    if (fdset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    FD_SET(fd, (fd_set*)fdset);
+    return 0;
+}
+
+int oa_ss_fdset_isset(oa_ss_fdset_t fdset, int fd, int* isset) {
+    if (fdset == NULL || isset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    *isset = FD_ISSET(fd, (fd_set*)fdset);
+    return 0;
+}
+
+int oa_ss_fdset_clear(oa_ss_fdset_t fdset) {
+    if (fdset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    FD_ZERO((fd_set*)fdset);
+    return 0;
+}
+
+int oa_socket_select(oa_ss_fdset_t read_set,
+                    oa_ss_fdset_t write_set,
+                    oa_ss_fdset_t except_set,
+                    unsigned long long timeout_ms,
+                    unsigned int* okay_fd_count) {
+    struct timeval tv;
+    int ret;
+
+    tv.tv_sec = (long)(timeout_ms / 1000);
+    tv.tv_usec = (long)(timeout_ms % 1000 * 1000);
+    ret =  select(0, (fd_set*)read_set,
+                 (fd_set*)write_set,
+                 (fd_set*)except_set, &tv);
+    if (ret == SOCKET_ERROR) {
+        ret = WSAGetLastError();
+        return OA_ERR_SYSTEM_CALL_FAILED;
+    }
+    if (okay_fd_count != NULL) {
+        *okay_fd_count = ret;
+    }
+
+    return 0;
+}

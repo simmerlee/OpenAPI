@@ -259,13 +259,124 @@ int oa_socket_receive(oa_socket_t* sock, char* buf, unsigned int buf_size,
     return 0;
 }
 
-int oa_socket_send_to(oa_socket_t* socket,
+int oa_socket_send_to(oa_socket_t* sock,
             const char* ip, unsigned int port,
             const char* buf, unsigned int length,
-            unsigned int* sent_length);
-int oa_socket_receive_from(oa_socket_t* socket,
+            unsigned int* sent_length) {
+    oa_socket_pri_t* sp;
+    struct sockaddr_in addr;
+    int ret;
+
+    if (sock == NULL || ip == NULL || port > OA_MAX_PORT ||
+        buf == NULL || length == 0) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    sp = *sock;
+    if (sp == NULL) {
+        return OA_ERR_OPERATION_FAILED;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons((unsigned short)port);
+    ret = inet_pton(AF_INET, ip, &(addr.sin_addr));
+    if (ret == 0) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    if (ret == -1) {
+        sp->sp_errno = errno;
+        return OA_ERR_SYSTEM_CALL_FAILED;
+    }
+    ret = sendto(sp->sp_fd, buf, length, 0,
+                (struct sockaddr*)&addr, sizeof(addr));
+    if (ret == -1) {
+        sp->sp_errno = errno;
+        return OA_ERR_SYSTEM_CALL_FAILED;
+    }
+    if (sent_length != 0) {
+        *sent_length = (unsigned int)ret;
+    }
+    return 0;
+}
+
+int oa_socket_receive_from(oa_socket_t* sock,
             char* ip, unsigned int* port,
             char* buf, unsigned int buf_size,
-            unsigned int* received_length);
+            unsigned int* received_length) {
+    oa_socket_pri_t* sp;
+    struct sockaddr_in addr;
+    int addr_length = sizeof(addr);
+    int ret;
+    const char* retp;
+    char ip_buf[OA_IPV4_STR_MAX_LENGTH];
+
+    if (sock == NULL || buf == NULL || buf_size == 0) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    sp = *sock;
+    if (sp == NULL) {
+        return OA_ERR_OPERATION_FAILED;
+    }
+    ret = recvfrom(sp->sp_fd, buf, buf_size, 0, 
+                    (struct sockaddr*)&addr, &addr_length);
+    if (ret == -1) {
+        sp->sp_errno = errno;
+        return OA_ERR_SYSTEM_CALL_FAILED;
+    }
+    if (received_length != NULL) {
+        *received_length = (unsigned int)ret;
+    }
+    if (ip != NULL) {
+        retp = inet_ntop(AF_INET, &(addr.sin_addr),
+            ip_buf, OA_IPV4_STR_MAX_LENGTH);
+        if (retp == NULL) {
+            sp->sp_errno = errno;
+            return OA_ERR_SYSTEM_CALL_FAILED;
+        }
+        strcpy(ip, ip_buf);
+    }
+    if (port != NULL) {
+        *port = ntohs(addr.sin_port);
+    }
+
+    return 0;
+}
+
+int oa_socket_get_fd(oa_socket_t* sock, long long* fd) {
+    oa_socket_pri_t* sp;
+
+    if (sock == NULL || fd == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    sp = *sock;
+    if (sp == NULL) {
+        return OA_ERR_OPERATION_FAILED;
+    }
+    *fd = (long long)(sp->sp_fd);
+
+    return 0;
+}
+
+int oa_socket_set_nonblock(oa_socket_t* sock, int flag) {
+    oa_socket_pri_t* sp;
+    unsigned long value;
+    int ret;
+
+    if (sock == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    sp = *sock;
+    if (sp == NULL) {
+        return OA_ERR_OPERATION_FAILED;
+    }
+    value = flag;
+    ret = ioctl(sp->sp_fd, FIONBIO, &value);
+    if (ret != 0) {
+        sp->sp_errno = errno;
+        return OA_ERR_SYSTEM_CALL_FAILED;
+    }
+
+    return 0;
+}
 
 int oa_socket_select();
+

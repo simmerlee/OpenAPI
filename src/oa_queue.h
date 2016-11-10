@@ -21,9 +21,10 @@ int32_t oa_queue_init(oa_queue_t* queue, size_t data_size);
 int32_t oa_queue_destroy(oa_queue_t* queue);
 int32_t oa_queue_push_back(oa_queue_t* queue, const void* data);
 int32_t oa_queue_pop_front(oa_queue_t* queue);
-int32_t oa_queue_get_back(oa_queue_t* queue, void** data);
-int32_t oa_queue_get_front(oa_queue_t* queue, void** data);
+int32_t oa_queue_get_back_cp(oa_queue_t* queue, void* data);
+int32_t oa_queue_get_front_cp(oa_queue_t* queue, void* data);
 int32_t oa_queue_get_size(oa_queue_t* queue, size_t* size);
+int32_t oa_queue_clear(oa_queue_t* queue);
 
 
 #ifdef __cplusplus

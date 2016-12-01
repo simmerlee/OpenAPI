@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -18,6 +19,9 @@ typedef struct {
     int sp_fd;
     int sp_errno;
 }oa_socket_pri_t;
+
+int oa_socket_wsa_init() {}
+int oa_socket_wsa_destroy() {}
 
 int oa_socket_init(oa_socket_t* sock, oa_socket_family_t family) {
     oa_socket_pri_t* sp;
@@ -48,6 +52,22 @@ int oa_socket_init(oa_socket_t* sock, oa_socket_family_t family) {
     }
     *sock = sp;
 
+    return 0;
+}
+
+int oa_socket_init_by_fd(oa_socket_t* sock, int fd) {
+    oa_socket_pri_t* sp;
+
+    if (sock == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    *sock = NULL;
+    sp = (oa_socket_pri_t*)malloc(sizeof(oa_socket_pri_t));
+    if (sp == NULL) {
+        return OA_ERR_OUT_OF_MEMORY;
+    }
+    sp->sp_fd = fd;
+    *sock = sp;
     return 0;
 }
 
@@ -378,5 +398,125 @@ int oa_socket_set_nonblock(oa_socket_t* sock, int flag) {
     return 0;
 }
 
-int oa_socket_select();
+int oa_socket_get_last_error(oa_socket_t* sock, int* error_number) {
+    oa_socket_pri_t* sp;
+
+    if (sock == NULL || error_number == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    sp = *sock;
+    if (sp == NULL) {
+        return OA_ERR_OPERATION_FAILED;
+    }
+    *error_number = sp->sp_errno;
+    return 0;
+}
+
+typedef struct {
+    fd_set fds;
+    int maxfd;
+}oa_ss_fdset_pri_t;
+
+int oa_ss_fdset_init(oa_ss_fdset_t* fdset) {
+    oa_ss_fdset_pri_t* ssp;
+
+    if (fdset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    ssp = malloc(sizeof(oa_ss_fdset_pri_t));
+    if (ssp == NULL) {
+        return OA_ERR_OUT_OF_MEMORY;
+    }
+    ssp->maxfd = 0;
+    *fdset = ssp;
+
+    return 0;
+}
+
+int oa_ss_fdset_destroy(oa_ss_fdset_t* fdset) {
+    oa_ss_fdset_pri_t* ssp;
+    if (fdset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    ssp = (oa_ss_fdset_pri_t*)(*fdset);
+    if (ssp == NULL) {
+        return OA_ERR_OPERATION_FAILED;
+    }
+    free(ssp);
+    *fdset = NULL;
+    return 0;
+}
+
+int oa_ss_fdset_set(oa_ss_fdset_t fdset, int fd) {
+    oa_ss_fdset_pri_t* ssp;
+    if (fdset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    ssp = (oa_ss_fdset_pri_t*)fdset;
+    FD_SET(fd, &(ssp->fds));
+    if (fd > ssp->maxfd) {
+        ssp->maxfd = fd;
+    }
+    return 0;
+}
+
+int oa_ss_fdset_isset(oa_ss_fdset_t fdset, int fd, int* isset) {
+    oa_ss_fdset_pri_t* ssp;
+    if (fdset == NULL || isset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    ssp = (oa_ss_fdset_pri_t*)fdset;
+    *isset = FD_ISSET(fd, &(ssp->fds));
+    return 0;
+}
+
+int oa_ss_fdset_clear(oa_ss_fdset_t fdset) {
+    oa_ss_fdset_pri_t* ssp;
+    if (fdset == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    ssp = (oa_ss_fdset_pri_t*)fdset;
+    FD_ZERO((fd_set*)&(ssp->fds));
+    return 0;
+}
+
+int oa_socket_select(oa_ss_fdset_t read_set,
+                    oa_ss_fdset_t write_set,
+                    oa_ss_fdset_t except_set,
+                    unsigned long long timeout_ms,
+                    unsigned int* okay_fd_count) {
+    struct timeval tv;
+    int ret;
+    oa_ss_fdset_pri_t *rssp, *wssp, *essp;
+    fd_set *rs, *ws, *es;
+    int maxfd = 0;
+
+    rssp = (oa_ss_fdset_pri_t*)read_set;
+    wssp = (oa_ss_fdset_pri_t*)write_set;
+    essp = (oa_ss_fdset_pri_t*)except_set;
+    if (rssp != NULL) {
+        rs = &(rssp->fds);
+        maxfd = rssp->maxfd > maxfd ? rssp->maxfd : maxfd;
+    }
+    if (wssp != NULL) {
+        rs = &(wssp->fds);
+        maxfd = wssp->maxfd > maxfd ? wssp->maxfd : maxfd;
+    }
+    if (essp != NULL) {
+        rs = &(essp->fds);
+        maxfd = essp->maxfd > maxfd ? essp->maxfd : maxfd;
+    }
+    tv.tv_sec = (long)(timeout_ms / 1000);
+    tv.tv_usec = (long)(timeout_ms % 1000 * 1000);
+    ret = select(maxfd + 1, rs, ws, es, &tv);
+    if (ret == -1) {
+        ret = errno;
+        return OA_ERR_SYSTEM_CALL_FAILED;
+    }
+    if (okay_fd_count != NULL) {
+        *okay_fd_count = ret;
+    }
+
+    return 0;
+}
 

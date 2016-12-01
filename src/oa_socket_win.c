@@ -405,6 +405,20 @@ int oa_socket_set_nonblock(oa_socket_t* sock, int flag) {
     return 0;
 }
 
+int oa_socket_get_last_error(oa_socket_t* sock, int* error_number) {
+    oa_socket_pri_t* sp;
+
+    if (sock == NULL || error_number == NULL) {
+        return OA_ERR_ILLEGAL_ARG;
+    }
+    sp = *sock;
+    if (sp == NULL) {
+        return OA_ERR_OPERATION_FAILED;
+    }
+    *error_number = sp->sp_errno;
+    return 0;
+}
+
 int oa_ss_fdset_init(oa_ss_fdset_t* fdset) {
     if (fdset == NULL) {
         return OA_ERR_ILLEGAL_ARG;

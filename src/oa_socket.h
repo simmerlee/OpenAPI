@@ -37,6 +37,7 @@ int oa_socket_receive_from(oa_socket_t* sock,
 int oa_socket_get_fd(oa_socket_t* sock, long long* fd);
 
 int oa_socket_set_nonblock(oa_socket_t* sock, int flag);
+int oa_socket_get_last_error(oa_socket_t* sock, int* error_number);
 
 #define OA_SS_EMPTY_FDSET              0
 

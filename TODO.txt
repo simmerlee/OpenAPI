@@ -2,4 +2,5 @@
 2. replace some unsigned int as size_t
 3. add compatibility for socket type. Windows platform SOCKET type is different in 32 and 64 environment.
 4. add atoi and itoa to string
+5. 把所有的平台合併成一個文件。
 
